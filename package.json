@@ -1,0 +1,26 @@
+{
+  "name": "lambda2wasm",
+  "version": "1.0.0",
+  "description": "A Lambda expression compilr targting web assembly",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ENvironmentSet/lambda2wasm.git"
+  },
+  "author": "ENvironmentSet",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ENvironmentSet/lambda2wasm/issues"
+  },
+  "homepage": "https://github.com/ENvironmentSet/lambda2wasm#readme",
+  "devDependencies": {
+    "typescript": "^4.6.4"
+  },
+  "dependencies": {
+    "fp-ts": "^2.12.1",
+    "parser-ts": "^0.6.16"
+  }
+}
