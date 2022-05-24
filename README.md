@@ -1,2 +1,2 @@
 # lambda2wasm
-Lambda expression compiler targeting web assembly.
+A Lambda expression compiler targeting web assembly.
