@@ -1,0 +1,13 @@
+<identifier> ::= (a | ... | Z) [ any ascii character ]
+<identifier_variable> ::= (a | ... | z) [ any ascii character ]
+
+<type> = <identifier> | <function-type> | "(" <type> ")"
+<function-type> ::= <type> "->" <type>
+
+<program> ::= [ <binding> ]
+
+<binding> ::= <identifier_variable> "=" <expression>
+
+<expression> ::= <abstraction> | <application> | <identifier> | "(" <expression> ")"
+<abstraction> ::= <identifier_variable> "." <expression>
+<application> ::= <expression> <expression>
