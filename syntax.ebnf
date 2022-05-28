@@ -13,5 +13,7 @@
 <multiplicative> ::= <lambda-expression> | <multiplicative> "*" <lambda-expression> | <multiplicative> "/" <lambda-expression>
 <lambda-expression> ::= <abstraction> | <application> | <identifier> | <number>
 <abstraction> ::= <identifier_variable> "." <expression>
-<application> ::= <expression> <expression>
+<application> ::= <application> <expression_argument> | <expression_head>
+<expression_argument> ::= "(" <expression> ")" | <identifier> | <number>
+<expression_head> ::= "(" <expression> ")" | <identifier>
 <number> ::= (1 | ... | 9) { 0 | ... | 9 } [ "." { 0 | ... | 9 } ]
