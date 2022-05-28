@@ -17,10 +17,10 @@
   },
   "homepage": "https://github.com/ENvironmentSet/lambda2wasm#readme",
   "devDependencies": {
+    "tspeg": "^3.2.1",
     "typescript": "^4.6.4"
   },
   "dependencies": {
-    "fp-ts": "^2.12.1",
-    "parser-ts": "^0.6.16"
+    "fp-ts": "^2.12.1"
   }
 }
