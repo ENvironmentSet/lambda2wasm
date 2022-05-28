@@ -1,5 +1,5 @@
-<identifier> ::= (a | ... | Z) [ any ascii character ]
-<identifier_variable> ::= (a | ... | z) [ any ascii character ]
+<identifier> ::= (a | ... | Z) { any ascii character }
+<identifier_variable> ::= (a | ... | z) { any ascii character }
 
 <type> = <identifier> | <function-type> | "(" <type> ")"
 <function-type> ::= <type> "->" <type>
@@ -8,6 +8,10 @@
 
 <binding> ::= <identifier_variable> "=" <expression>
 
-<expression> ::= <abstraction> | <application> | <identifier> | "(" <expression> ")"
+<expression> ::= "(" <expression> ")" | <additive>
+<additive> ::= <additive> "+" <multiplicative> | <additive> "-" <multiplicative> | <multiplicative>
+<multiplicative> ::= <lambda-expression> | <multiplicative> "*" <lambda-expression> | <multiplicative> "/" <lambda-expression>
+<lambda-expression> ::= <abstraction> | <application> | <identifier> | <number>
 <abstraction> ::= <identifier_variable> "." <expression>
 <application> ::= <expression> <expression>
+<number> ::= (1 | ... | 9) { 0 | ... | 9 } [ "." { 0 | ... | 9 } ]
