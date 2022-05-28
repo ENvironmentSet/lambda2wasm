@@ -1,0 +1,19 @@
+start := binding* $
+
+identifier := '[A-Za-z]\w*'
+identifier_variable := '[a-z]\w*'
+
+type_function_type_head := identifier | '\(' type '\)'
+function_type := type_function_type_head  | type_function_type_head '->' function_type
+type := identifier | function_type | '\(' type '\)'
+
+binding := identifier_variable '=' exp=expression
+expression := '\(' expression '\)' | additive
+additive := additive '\+' multiplicative | additive '-' multiplicative | multiplicative
+multiplicative := lambda_expression | multiplicative '\*' lambda_expression | multiplicative '/' lambda_expression
+lambda_expression := abstraction | application | identifier | num
+abstraction := identifier_variable ':' type '\.' expression
+application := application expression_argument | expression_head
+expression_argument := '\(' expression '\)' | identifier
+expression_head := '\(' expression '\)' | identifier
+num := '[1-9][0-9]*' '\.[0-9]+'?
