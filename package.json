@@ -4,7 +4,7 @@
   "description": "A Lambda expression compilr targting web assembly",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "generate-parser": "tspeg syntax.peg ./src/parser.ts"
   },
   "repository": {
     "type": "git",
