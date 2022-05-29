@@ -12,7 +12,7 @@
 <additive> ::= <additive> "+" <multiplicative> | <additive> "-" <multiplicative> | <multiplicative>
 <multiplicative> ::= <lambda-expression> | <multiplicative> "*" <lambda-expression> | <multiplicative> "/" <lambda-expression>
 <lambda-expression> ::= <abstraction> | <application> | <identifier> | <number>
-<abstraction> ::= <identifier_variable> "." <expression>
+<abstraction> ::= <identifier_variable> ":" <type> "." <expression>
 <application> ::= <application> <expression_argument> | <expression_head>
 <expression_argument> ::= "(" <expression> ")" | <identifier> | <number>
 <expression_head> ::= "(" <expression> ")" | <identifier>

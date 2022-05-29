@@ -1,19 +1,19 @@
-start := binding* $
+start := bindings=binding* $
 
-identifier := '[A-Za-z]\w*'
-identifier_variable := '[a-z]\w*'
+identifier := identifier='[A-Za-z]\w*'
+identifier_variable := identifier='[a-z]\w*'
 
 type_function_type_head := identifier | '\(' type '\)'
-function_type := type_function_type_head  | type_function_type_head '->' function_type
+function_type := type_function_type_head  | param=type_function_type_head '->' exp=function_type
 type := identifier | function_type | '\(' type '\)'
 
-binding := identifier_variable '=' exp=expression
+binding := name=identifier_variable '=' exp=expression
 expression := '\(' expression '\)' | additive
-additive := additive '\+' multiplicative | additive '-' multiplicative | multiplicative
-multiplicative := lambda_expression | multiplicative '\*' lambda_expression | multiplicative '/' lambda_expression
+additive := left=additive '\+' right=multiplicative | left=additive '-' right=multiplicative | multiplicative
+multiplicative := left=multiplicative '\*' right=lambda_expression | left=multiplicative '/' right=lambda_expression | lambda_expression
 lambda_expression := abstraction | application | identifier | num
-abstraction := identifier_variable ':' type '\.' expression
-application := application expression_argument | expression_head
+abstraction := param=identifier_variable ':' paramT=type '\.' body=expression
+application := head=application arg=expression_argument | expression_head
 expression_argument := '\(' expression '\)' | identifier
 expression_head := '\(' expression '\)' | identifier
-num := '[1-9][0-9]*' '\.[0-9]+'?
+num := '[1-9][0-9]*(\.[0-9]+)?'
