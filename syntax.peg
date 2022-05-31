@@ -1,20 +1,25 @@
 start := bindings=binding* $
 
+_ := '\s*'
+
 identifier := identifier='[A-Za-z]\w*'
 identifier_variable := identifier='[a-z]\w*'
 
-type_function_type_head := identifier | '\(' type '\)'
-function_type := type_function_type_head  | param=type_function_type_head '->' exp=function_type
-type := identifier | function_type | '\(' type '\)'
+type_var_mono := identifier='[A-Z]\w*'
+type_var_poly := identifier='[a-z]\w*'
+type_var := type_var_mono | type_var_poly
+type_function_type_head := type_var | '\(' _ type=type _ '\)'
+function_type := param=type_function_type_head _ '->' _ exp=function_type | type_function_type_head
+type := function_type | '\(' _ type=type _ '\)' | type_var
 
-binding := name=identifier_variable '=' exp=expression
-expression := '\(' expression '\)' | additive
-additive := left=additive '\+' right=multiplicative | left=additive '-' right=multiplicative | multiplicative
-multiplicative := left=multiplicative '\*' right=lambda_expression | left=multiplicative '/' right=lambda_expression | lambda_expression
+binding := _ name=identifier_variable _ '=' _ exp=expression _ '\.' _
+expression := '\(' _ exp=expression _ '\)' | additive
+additive := left=additive _ '\+' _ right=multiplicative | left=additive _ '-' _ right=multiplicative | multiplicative
+multiplicative := left=multiplicative _ '\*' _ right=lambda_expression | left=multiplicative _ '/' _ right=lambda_expression | lambda_expression
 lambda_expression := abstraction | application | identifier | num
-abstraction := param=identifier_variable ':' paramT=type '\.' body=expression
-application := head=application arg=expression_argument | expression_head
-expression_argument := '\(' expression '\)' | identifier
-expression_head := '\(' expression '\)' | identifier
-num := lexeme='[1-9][0-9]*(\.[0-9]+)?'
+abstraction := param=identifier_variable _ ':' _ paramT=type _ '\.' _ body=expression
+application := head=application '\s+' arg=expression_argument | expression_head
+expression_argument := '\(' _ exp=expression _ '\)' | identifier | num
+expression_head := '\(' _ exp=expression _ '\)' | identifier
+num := lexeme='((-?[1-9][0-9]*)|(0))(\.[0-9]+)?' _ '#' _ type=type_var
   .value = number { return parseFloat(this.lexeme); }
