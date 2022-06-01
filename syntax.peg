@@ -13,7 +13,7 @@ function_type := param=type_function_type_head _ '->' _ exp=function_type | type
 type := function_type | '\(' _ type=type _ '\)' | type_var
 
 binding := _ name=identifier_variable _ '=' _ exp=expression _ '\.' _
-expression := '\(' _ exp=expression _ '\)' | additive
+expression := additive | '\(' _ exp=expression _ '\)'
 additive := left=additive _ '\+' _ right=multiplicative | left=additive _ '-' _ right=multiplicative | multiplicative
 multiplicative := left=multiplicative _ '\*' _ right=lambda_expression | left=multiplicative _ '/' _ right=lambda_expression | lambda_expression
 lambda_expression := abstraction | application | identifier | num

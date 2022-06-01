@@ -11,7 +11,7 @@
 * function_type := param=type_function_type_head _ '->' _ exp=function_type | type_function_type_head
 * type := function_type | '\(' _ type=type _ '\)' | type_var
 * binding := _ name=identifier_variable _ '=' _ exp=expression _ '\.' _
-* expression := '\(' _ exp=expression _ '\)' | additive
+* expression := additive | '\(' _ exp=expression _ '\)'
 * additive := left=additive _ '\+' _ right=multiplicative | left=additive _ '-' _ right=multiplicative | multiplicative
 * multiplicative := left=multiplicative _ '\*' _ right=lambda_expression | left=multiplicative _ '/' _ right=lambda_expression | lambda_expression
 * lambda_expression := abstraction | application | identifier | num
@@ -117,11 +117,11 @@ export interface binding {
     exp: expression;
 }
 export type expression = expression_1 | expression_2;
-export interface expression_1 {
-    kind: ASTKinds.expression_1;
+export type expression_1 = additive;
+export interface expression_2 {
+    kind: ASTKinds.expression_2;
     exp: expression;
 }
-export type expression_2 = additive;
 export type additive = additive_1 | additive_2 | additive_3;
 export interface additive_1 {
     kind: ASTKinds.additive_1;
@@ -406,10 +406,13 @@ export class Parser {
         ]);
     }
     public matchexpression_1($$dpth: number, $$cr?: ErrorTracker): Nullable<expression_1> {
-        return this.run<expression_1>($$dpth,
+        return this.matchadditive($$dpth + 1, $$cr);
+    }
+    public matchexpression_2($$dpth: number, $$cr?: ErrorTracker): Nullable<expression_2> {
+        return this.run<expression_2>($$dpth,
             () => {
                 let $scope$exp: Nullable<expression>;
-                let $$res: Nullable<expression_1> = null;
+                let $$res: Nullable<expression_2> = null;
                 if (true
                     && this.regexAccept(String.raw`(?:\()`, $$dpth + 1, $$cr) !== null
                     && this.match_($$dpth + 1, $$cr) !== null
@@ -417,13 +420,10 @@ export class Parser {
                     && this.match_($$dpth + 1, $$cr) !== null
                     && this.regexAccept(String.raw`(?:\))`, $$dpth + 1, $$cr) !== null
                 ) {
-                    $$res = {kind: ASTKinds.expression_1, exp: $scope$exp};
+                    $$res = {kind: ASTKinds.expression_2, exp: $scope$exp};
                 }
                 return $$res;
             });
-    }
-    public matchexpression_2($$dpth: number, $$cr?: ErrorTracker): Nullable<expression_2> {
-        return this.matchadditive($$dpth + 1, $$cr);
     }
     public matchadditive($$dpth: number, $$cr?: ErrorTracker): Nullable<additive> {
         const fn = () => {

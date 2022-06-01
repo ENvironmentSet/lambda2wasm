@@ -1,4 +1,13 @@
-import { abstraction, application_1, ASTKinds, binding, expression, function_type_1, start, type } from './parser';
+import {
+  abstraction,
+  application_1,
+  ASTKinds,
+  binding,
+  expression,
+  function_type_1,
+  start,
+  type
+} from './parser';
 import {
   LCAbs,
   LCAbsT,
@@ -48,7 +57,7 @@ function refineApplication(st: application_1): LCApp {
 
 function refineExp(st: expression): LCExp {
   switch (st.kind) {
-    case ASTKinds.expression_1:
+    case ASTKinds.expression_2:
       return refineExp(st.exp)
     case ASTKinds.additive_1:
       return LCAdd(refineExp(st.left), refineExp(st.right))
