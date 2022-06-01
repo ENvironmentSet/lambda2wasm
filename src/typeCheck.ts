@@ -1,7 +1,13 @@
 import { AST, LCAbs, LCAbsT, LCApp, LCExp, LCNum, LCProc, LCPVar, LCType, LCVar } from './AST';
 
-type TypeMap = WeakMap<AST, LCType>;
+export type TypeMap = WeakMap<AST, LCType>;
 type TypeEnv = [string, LCType][];
+
+function typeToString(type: LCType): string {
+  if (type.tag === 'LCMVar') return type.id;
+  if (type.tag === 'LCPVar') return type.id;
+  else return `(${typeToString(type.param)}) -> ${typeToString(type.ret)}`
+}
 
 function resolveTVar(tenv: TypeEnv, variable: string): LCType {
   const result = tenv.find(([key]) => key === variable);
@@ -65,7 +71,7 @@ function typeEq(t1: LCType, t2: LCType): boolean {
   } else return true;
 }
 
-function isPolyType(type: LCType): boolean {
+export function isPolyType(type: LCType): boolean {
   if (type.tag === 'LCMVar') return false;
   if (type.tag === 'LCPVar') return true;
 
@@ -75,13 +81,15 @@ function isPolyType(type: LCType): boolean {
 // find sol of t1 = t2
 function solveTypeEquation(t1: LCType, t2: LCType, tenv: TypeEnv): TypeEnv {
   if (t1.tag === 'LCPVar') return ([[t1.id, t2]] as TypeEnv).concat(tenv);
-  if (t1.tag === 'LCMVar' || t2.tag !== 'LCAbsT') throw new Error(`No solution for type equation: ${t1} = ${t2}`);
+  if (t1.tag === 'LCMVar' || t2.tag !== 'LCAbsT') throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)}`);
 
   return solveTypeEquation(t1.ret, t2.ret, solveTypeEquation(t1.param, t2.param, tenv));
 }
 
 function instantiatePolyType(ptype: LCType, tenv: TypeEnv): LCType {
-  if (ptype.tag === 'LCPVar') return tenv.find(([id]) => ptype.id)![1];
+  if (ptype.tag === 'LCPVar') {
+    return (tenv.find(([id]) => ptype.id === id) ?? [, ptype])[1];
+  }
   if (ptype.tag === 'LCMVar') return ptype;
 
   return LCAbsT(instantiatePolyType(ptype.param, tenv), instantiatePolyType(ptype.ret, tenv));
@@ -101,10 +109,10 @@ function checkApplication(ast: LCApp, tmap: TypeMap, tenv: TypeEnv): void {
 
   if (isPolyType(paramType)) {
     const sols = solveTypeEquation(paramType, argType, tenv);
-    // in case of ret type is distinct from paramType, set rettype as polyType, but can be resolved to anything
+
     tmap.set(ast, instantiatePolyType(retType, sols));
   } else {
-    if (!typeEq(paramType, argType)) throw new Error(`${argType} is not equals to ${retType}`);
+    if (!typeEq(paramType, argType)) throw new Error(`${typeToString(argType)} is not equals to ${typeToString(retType)}`);
 
     tmap.set(ast, retType);
   }
@@ -124,7 +132,7 @@ function checkExp(ast: LCExp, tmap: TypeMap, tenv: TypeEnv): void {
     const ltype = tmap.get(left)!;
     const rtype = tmap.get(right)!;
 
-    if (!typeEq(ltype, rtype)) throw new Error(`type of left and right operand are not compatible,  ${ltype} is not equal to ${rtype}`);
+    if (!typeEq(ltype, rtype)) throw new Error(`type of left and right operand are not compatible,  ${typeToString(ltype)} is not equal to ${typeToString(rtype)}`);
     tmap.set(ast, ltype);
   }
 }
