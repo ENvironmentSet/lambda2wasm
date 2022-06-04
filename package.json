@@ -1,7 +1,7 @@
 {
   "name": "lambda2wasm",
   "version": "1.0.0",
-  "description": "A Lambda expression compilr targting web assembly",
+  "description": "A Lambda expression compiler targeting web assembly",
   "main": "index.js",
   "scripts": {
     "generate-parser": "tspeg syntax.peg ./src/parser.ts"
