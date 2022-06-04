@@ -43,7 +43,7 @@ function refineType(st: type): LCType {
     case ASTKinds.type_function_type_head_2:
       return refineType(st.type)
     default:
-      throw new Error(`non-exhaust switch statement in refineTy[e: ${st}`);
+      throw new Error(`non-exhaust switch statement in refineType: ${st}`);
   }
 }
 
