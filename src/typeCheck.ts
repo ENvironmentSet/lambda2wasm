@@ -3,7 +3,7 @@ import { AST, LCAbs, LCAbsT, LCApp, LCExp, LCNum, LCProc, LCPVar, LCType, LCVar 
 export type TypeMap = WeakMap<AST, LCType>;
 type TypeEnv = [string, LCType][];
 
-function typeToString(type: LCType): string {
+export function typeToString(type: LCType): string {
   if (type.tag === 'LCMVar') return type.id;
   if (type.tag === 'LCPVar') return type.id;
   else return `(${typeToString(type.param)}) -> ${typeToString(type.ret)}`
