@@ -47,7 +47,7 @@ function compileVariable(ast: LCVar, context: Context): string {
   } else if (variableOffSet >= 1) { // semi-bound
     const opType = lcType2WasmType(context.typeMap.get(ast)!);
 
-    return `(call $read_${opType}_from_context (i32.const ${variableOffSet + 1}) (local.get $context))`;
+    return `(call $read_${opType}_from_context (i32.const ${context.localVars.length - variableOffSet}) (local.get $context))`;
   } else { // global binding
     return `(call $${ast.id})`;
   }
@@ -82,7 +82,7 @@ function compileAbstraction(ast: LCAbs, context: Context): string {
 
   if (isPolyType(functionType)) throw new Error('Polymorphic Function is not implemented yet');
 
-  const functionName = `${context.lambdaConfig.lambdaName}_${context.lambdaConfig.lambdaDepth++}`;
+  const functionName = `${context.lambdaConfig.lambdaName}_${context.lambdaConfig.lambdaDepth}`;
   const paramType = lcType2WasmType(functionType.param);
   let contextInit = '';
 
@@ -93,6 +93,12 @@ function compileAbstraction(ast: LCAbs, context: Context): string {
       (local.set $context (call $start_context (i64.const 0)))
     `;
   }
+
+  context.lambdaConfig.lambdaDepth++;
+
+  contextInit += `
+   (local.set $context (call $alloc_context_var_${lcType2WasmType(ast.pType)} (local.get $${ast.pID}) (local.get $context)))
+  `;
 
   context.functionMap.set(functionName, {
     code: `
@@ -110,23 +116,13 @@ function compileAbstraction(ast: LCAbs, context: Context): string {
 }
 
 function compileApplication(ast: LCApp, context: Context): string {
-  let precall = '';
-
-  if (context.localVars.length > 0) {
-    const boundVariable = context.localVars[0];
-
-    precall = `
-      (local.set $context (call $alloc_context_var_${lcType2WasmType(boundVariable[1])} (local.get $${boundVariable[0]}) (local.get $context)))
-    `;
-  }
-
   const signatureName = `$_sig_${context.lambdaConfig.lambdaName}_${context.sigMap.size}`;
   const signature = `(type ${signatureName} (func (param ${lcType2WasmType((context.typeMap.get(ast.f) as LCAbsT).param)}) (param i32) (result ${lcType2WasmType((context.typeMap.get(ast.f) as LCAbsT).ret)})))`;
   //@FIXME: Monkey patch
 
   context.sigMap.set(signatureName, signature);
 
-  return `${precall} (call_indirect (type ${signatureName}) ${compileExpression(ast.arg, context)} (local.get $context) ${compileExpression(ast.f, context)})`
+  return `(call_indirect (type ${signatureName}) ${compileExpression(ast.arg, context)} (local.get $context) ${compileExpression(ast.f, context)})`
 }
 
 function compileExpression(ast: LCExp, context: Context): string {
@@ -178,9 +174,11 @@ export function compile(ast: LCProc, typeMap: TypeMap): string {
     (call $get_context (local.get $offset))
     (i32x4.extract_lane 2)
   )
-  (func $get_context_start (param $offset i32) (result i32)
+   (func $get_context_start (param $offset i32) (result i32)
     (call $get_context (local.get $offset))
     (i32x4.extract_lane 3)
+    (call $get_context)
+    (i32x4.extract_lane 2)
   )
   (func $get_context (param $offset i32) (result v128)
     (v128.load (i32.mul (local.get $offset) (i32.const 128)))
@@ -206,7 +204,7 @@ export function compile(ast: LCProc, typeMap: TypeMap): string {
     (call $create_context (i64.extend_i32_s (local.get $value)) (call $get_context_start (local.get $base)))
     (v128.store)
     (i32.mul (local.get $base) (i32.const 128))
-    (i32x4.replace_lane 2 (call $get_context (local.get $base)) (global.get $context_heap_offset))
+    (i32x4.replace_lane 2 (call $get_context (local.get $base)) (call $cal_heap_border))
     (v128.store)
     (global.get $context_heap_offset)
     (global.set $context_heap_offset (i32.add (i32.const 1) (global.get $context_heap_offset)))
