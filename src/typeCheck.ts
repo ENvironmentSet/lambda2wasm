@@ -1,5 +1,7 @@
 import { AST, LCAbs, LCAbsT, LCApp, LCExp, LCNum, LCProc, LCPVar, LCType, LCVar } from './AST';
 
+//@TODO: Rewrite in functional manner.
+
 export type TypeMap = WeakMap<AST, LCType>;
 type TypeEnv = [string, LCType][];
 

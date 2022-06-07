@@ -18,7 +18,7 @@ type Context = {
 function lcType2WasmType(lcType: LCType): string {
   if (lcType.tag === 'LCMVar') {
     return lcType.id.toLowerCase();
-  } else if (lcType.tag === 'LCAbsT') return 'i32';
+  } else if (lcType.tag === 'LCAbsT') return 'i64';
   else throw new Error(`Cannot convert polymorphic type ${typeToString(lcType)} to wasm type. `);
 }
 
@@ -47,7 +47,7 @@ function compileVariable(ast: LCVar, context: Context): string {
   } else if (variableOffSet >= 1) { // semi-bound
     const opType = lcType2WasmType(context.typeMap.get(ast)!);
 
-    return `(call $read_${opType}_from_context (i32.const ${context.localVars.length - variableOffSet}) (local.get $context))`;
+    return `(call $read_${opType}_from_context (i32.const ${variableOffSet}) (local.get $context))`;
   } else { // global binding
     return `(call $${ast.id})`;
   }
@@ -90,19 +90,20 @@ function compileAbstraction(ast: LCAbs, context: Context): string {
 
   if (context.lambdaConfig.lambdaDepth === 0) {
     contextInit = `
-      (local.set $context (call $start_context (i64.const 0)))
+      (local.set $context (call $create_context_${lcType2WasmType(ast.pType)} (local.get $${ast.pID})))
+    `;
+  } else {
+    contextInit += `
+     (local.set $context (call $alloc_context_var_${lcType2WasmType(ast.pType)} (local.get $${ast.pID}) (local.get $context)))
     `;
   }
 
   context.lambdaConfig.lambdaDepth++;
 
-  contextInit += `
-   (local.set $context (call $alloc_context_var_${lcType2WasmType(ast.pType)} (local.get $${ast.pID}) (local.get $context)))
-  `;
-
   context.functionMap.set(functionName, {
     code: `
       (func $${functionName} (param $${ast.pID} ${paramType}) (param $context i32) (result ${lcType2WasmType(functionType.ret)})
+        (local $closure_ref_tmp i64)
         ${contextInit}
         ${compileExpression(ast.exp, context)}
       )
@@ -112,7 +113,7 @@ function compileAbstraction(ast: LCAbs, context: Context): string {
 
   context.localVars.shift();
 
-  return `(i32.const ${context.tableOffset++})`;
+  return `(call $create_closure (i32.const ${context.tableOffset++}) (local.get $context))`;
 }
 
 function compileApplication(ast: LCApp, context: Context): string {
@@ -122,7 +123,10 @@ function compileApplication(ast: LCApp, context: Context): string {
 
   context.sigMap.set(signatureName, signature);
 
-  return `(call_indirect (type ${signatureName}) ${compileExpression(ast.arg, context)} (local.get $context) ${compileExpression(ast.f, context)})`
+  return `
+    (local.set $closure_ref_tmp ${compileExpression(ast.f, context)})
+    (call_indirect (type ${signatureName}) ${compileExpression(ast.arg, context)} (call $get_context_from_closure (local.get $closure_ref_tmp)) (call $get_fref_from_closure (local.get $closure_ref_tmp)) )
+  `;
 }
 
 function compileExpression(ast: LCExp, context: Context): string {
@@ -151,78 +155,16 @@ export function compile(ast: LCProc, typeMap: TypeMap): string {
   const sigMap = new Map<string, string>();
   let result = `
     (module
-    (global $context_heap_offset (mut i32) (i32.const 0))
-  (memory $context_heap 1)
-  ;; context ref : vec128 ( value : 64bit, next: i32, start: i32)
-  ;; context ref :  vec128 ( value : 64bit, before: i32, index: i32)
-  (func $create_context (param $value i64) (param $start i32) (result v128)
-      (i64x2.replace_lane 0 (v128.const i64x2 0 0) (local.get $value))
-      (local.get $start)
-      (i32x4.replace_lane 3)
-  )
-  (func $cal_heap_border (result i32)
-    (i32.mul (global.get $context_heap_offset) (i32.const 128))
-  )
-  (func $start_context (param $value i64) (result i32)
-    (call $cal_heap_border)
-    (call $create_context (local.get $value) (call $cal_heap_border))
-    (v128.store)
-    (global.get $context_heap_offset)
-    (global.set $context_heap_offset (i32.add (i32.const 1) (global.get $context_heap_offset)))
-  )
-  (func $get_next_context (param $offset i32) (result i32)
-    (call $get_context (local.get $offset))
-    (i32x4.extract_lane 2)
-  )
-   (func $get_context_start (param $offset i32) (result i32)
-    (call $get_context (local.get $offset))
-    (i32x4.extract_lane 3)
-    (call $get_context)
-    (i32x4.extract_lane 2)
-  )
-  (func $get_context (param $offset i32) (result v128)
-    (v128.load (i32.mul (local.get $offset) (i32.const 128)))
-  )
-  (func $get_context_val_i32 (param $offset i32) (result i32)
-    (call $get_context (local.get $offset))
-    (i32x4.extract_lane 0)
-  )
-  (func $get_context_val_i64 (param $offset i32) (result i64)
-    (call $get_context (local.get $offset))
-    (i64x2.extract_lane 0)
-  )
-  (func $get_context_val_f32 (param $offset i32) (result f32)
-    (call $get_context (local.get $offset))
-    (f32x4.extract_lane 0)
-  )
-  (func $get_context_val_f64 (param $offset i32) (result f64)
-    (call $get_context (local.get $offset))
-    (f64x2.extract_lane 0)
-  )
-  (func $alloc_context_var_i32 (param $value i32) (param $base i32) (result i32)
-    (call $cal_heap_border)
-    (call $create_context (i64.extend_i32_s (local.get $value)) (call $get_context_start (local.get $base)))
-    (v128.store)
-    (i32.mul (local.get $base) (i32.const 128))
-    (i32x4.replace_lane 2 (call $get_context (local.get $base)) (call $cal_heap_border))
-    (v128.store)
-    (global.get $context_heap_offset)
-    (global.set $context_heap_offset (i32.add (i32.const 1) (global.get $context_heap_offset)))
-  )
-  (func $read_i32_from_context (param $index i32) (param $context i32) (result i32)
-    (local $currentContext v128)
-    (local.set $currentContext (call $get_context (call $get_context_start (local.get $context))))
+      (import "runtime" "create_context_i32" (func $create_context_i32 (param i32) (result i32)))
+      (import "runtime" "create_context_i64" (func $create_context_i64 (param i64) (result i32)))
+      (import "runtime" "alloc_context_var_i32" (func $alloc_context_var_i32 (param i32) (param i32) (result i32)))
+      (import "runtime" "alloc_context_var_i64" (func $alloc_context_var_i64 (param i64) (param i32) (result i32)))
+      (import "runtime" "read_i32_from_context" (func $read_i32_from_context (param i32) (param i32) (result i32)))
+      (import "runtime" "read_i64_from_context" (func $read_i64_from_context (param i32) (param i32) (result i64)))
+      (import "runtime" "create_closure" (func $create_closure (param i32) (param i32) (result i64)))
+      (import "runtime" "get_fref_from_closure" (func $get_fref_from_closure (param i64) (result i32)))
+      (import "runtime" "get_context_from_closure" (func $get_context_from_closure (param i64) (result i32)))
 
-    (block
-      (loop
-        (br_if 0 (i32.eq (local.get $index) (i32.const 1)))
-        (local.set $currentContext (call $get_context (i32x4.extract_lane 2 (local.get $currentContext))))
-        (local.set $index (i32.sub (local.get $index) (i32.const 1)))
-      )
-    )
-
-    (i32x4.extract_lane 0 (local.get $currentContext))
-  )
   `;
 
   for (const binding of ast.bindings) {
@@ -235,6 +177,7 @@ export function compile(ast: LCProc, typeMap: TypeMap): string {
 
     result += `
       (func $${binding.id} (result ${lcType2WasmType(typeMap.get(binding)!)})
+        (local $closure_ref_tmp i64)
         (local $context i32)
         ${compileExpression(binding.exp, context)}
       )
