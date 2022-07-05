@@ -1,4 +1,4 @@
-import { AST, LCAbs, LCAbsT, LCApp, LCExp, LCNum, LCProc, LCPVar, LCType, LCVar } from './AST';
+import { AST, LCAbs, LCAbsT, LCApp, LCExp, LCMVar, LCNum, LCProc, LCPVar, LCType, LCVar } from './AST';
 
 //@TODO: Rewrite in functional manner.
 
@@ -25,7 +25,7 @@ function checkNumberLiteral(ast: LCNum, tmap: TypeMap): void {
     if (!Number.isInteger(ast.val)) throw new Error(`${ast.val} is not a integer`);
   }
 
-  function checkSize(size: number): void {
+  function checkSize(size: number): void { //@FIXME: Illegal implementation
     if (ast.val.toString(2).length > size) throw new Error(`${ast.val} is bigger than ${size} bit`);
   }
 
@@ -70,7 +70,7 @@ function typeEq(t1: LCType, t2: LCType): boolean {
   if (t1.tag !== t2.tag) return false;
   else if (t1.tag === 'LCAbsT' && t2.tag === 'LCAbsT') {
     return typeEq(t1.param, t2.param) && typeEq(t1.ret, t2.ret);
-  } else return true;
+  } else return (t1 as LCPVar | LCMVar).id === (t2 as LCPVar | LCMVar).id;
 }
 
 export function isPolyType(type: LCType): boolean {
