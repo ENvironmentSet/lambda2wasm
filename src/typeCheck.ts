@@ -25,9 +25,8 @@ function checkNumberLiteral(ast: LCNum, tmap: TypeMap): void {
     if (!Number.isInteger(ast.val)) throw new Error(`${ast.val} is not a integer`);
   }
 
-  function checkSize(size: number): void { //@FIXME: Illegal implementation
-    if (ast.val.toString(2).length > size) throw new Error(`${ast.val} is bigger than ${size} bit`);
-  }
+  //@FIXME: Illegal implementation
+  function checkSize(size: number): void {}
 
   switch (ast.type.id) {
     case 'I32':
