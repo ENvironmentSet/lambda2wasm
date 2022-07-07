@@ -143,7 +143,7 @@ function compileApplication(ast: LCApp, context: Context): string {
     `;
   }
 
-  let callExp = `(call_indirect (type ${signatureName}) ${argExp} (call $get_context_from_closure (local.get $closure_ref_tmp)) (call $get_fref_from_closure (local.get $closure_ref_tmp)))`;
+  let callExp = `(call_indirect (type ${signatureName}) ${argExp} (local.set $closure_ref_tmp ${compileExpression(ast.f, context)}) (call $get_context_from_closure (local.get $closure_ref_tmp)) (call $get_fref_from_closure (local.get $closure_ref_tmp)))`;
 
   if (retType.tag === 'LCPVar' && expectedType.tag !== 'LCPVar') {
     const [_, convOut] = getConversionKit(lcType2WasmType(expectedType));
@@ -154,7 +154,6 @@ function compileApplication(ast: LCApp, context: Context): string {
   }
 
   return `
-    (local.set $closure_ref_tmp ${compileExpression(ast.f, context)})
     ${callExp}
   `;
 }
