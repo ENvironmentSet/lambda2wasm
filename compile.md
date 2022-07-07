@@ -51,7 +51,7 @@ Abs / App / Variable / Binding / Global
 
 0. naming convention.
 
-(original name)_(lambda depth)_(parameter_type)_(return_type)
+(original name)_(lambda depth)_(parameter_type)
 
 '->' translated to '2'
 
@@ -106,3 +106,44 @@ context as linked list
 vec128
 
 [64bit] for data -> i32 (index) -> i32(next)
+
+funcPointer : i32(f table pointer) / i32(context pointer)
+
+context : vec128 (val i64 / before(outer) i32 / reserved i32)
+
+;; polyfunc compile
+
+
+if, def, then
+
+abst -> type split
+typevar as constant per stage, n * m
+
+else, exp, withapp -> getFullySaturatedType ~ free type var? error!
+
+a -> a
+
+diff a initiate?
+
+a unboxed to...
+
+parametric poly only...
+boxed? <-- memory loss?
+
+boxedval -> boxedval... (like funcref)
+poly call -> boxed
+poly out -> unboxed
+
+poly func impl : poly var as boxed
+a -> a
+
+| functype | argtype | rettype |
+|----------|---------|---------|
+| mono     | mono    | mono    |
+| poly     | mono    | mono    |
+| poly     | mono    | poly    |
+| poly     | poly    | poly    |
+| poly     | poly    | mono    |
+
+polytypevar stays polytype in it's scope
+monotypevar boxed polytype when enter polyfunc, unboxed when exit.
