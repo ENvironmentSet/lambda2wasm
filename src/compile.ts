@@ -48,6 +48,22 @@ const runtime = `
       (v128.store)
       (i32.div_u (local.get $new_index) (i32.const 16))
   )
+  
+  (func $create_context_f32 (param $value f32) (result i32) (local $new_index i32)
+      (local.set $new_index (call $get_next_context_addr))
+      (local.get $new_index)
+      (f32x4.replace_lane 0 (v128.const i32x4 0 0 0 1) (local.get $value))
+      (v128.store)
+      (i32.div_u (local.get $new_index) (i32.const 16))
+    )
+  
+    (func $create_context_f64 (param $value f64) (result i32) (local $new_index i32)
+        (local.set $new_index (call $get_next_context_addr))
+        (local.get $new_index)
+        (f64x2.replace_lane 0 (v128.const i32x4 0 0 0 1) (local.get $value))
+        (v128.store)
+        (i32.div_u (local.get $new_index) (i32.const 16))
+    )
 
   (func $alloc_context_var_i32 (param $value i32) (param $outer_index i32) (result i32) (local $new_context_index i32)
     (local.set $new_context_index (call $create_context_i32 (local.get $value)))
