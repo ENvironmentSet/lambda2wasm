@@ -133,6 +133,7 @@ function checkExp(ast: LCExp, tmap: TypeMap, tenv: TypeEnv): void {
     const ltype = tmap.get(left)!;
     const rtype = tmap.get(right)!;
 
+    if (isPolyType(ltype) || isPolyType(rtype)) throw new Error(`Cannot perform arithmetic operation to polytype value.`);
     if (!typeEq(ltype, rtype)) throw new Error(`type of left and right operand are not compatible,  ${typeToString(ltype)} is not equal to ${typeToString(rtype)}`);
     tmap.set(ast, ltype);
   }
