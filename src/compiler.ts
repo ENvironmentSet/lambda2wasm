@@ -1,4 +1,4 @@
-import { isPolyType, TypeMap, typeToString } from './typeCheck';
+import { TypeMap } from './typeCheck';
 import { LCAbs, LCAbsT, LCAdd, LCApp, LCDiv, LCExp, LCMult, LCNum, LCProc, LCSub, LCType, LCVar } from './AST';
 
 // wasm global : offset / heap control
@@ -18,8 +18,8 @@ type Context = {
 function lcType2WasmType(lcType: LCType): string {
   if (lcType.tag === 'LCMVar') {
     return lcType.id.toLowerCase();
-  } else if (lcType.tag === 'LCAbsT') return 'i64';
-  else return 'v128';
+  } else if (lcType.tag === 'LCAbsT') return 'i32';
+  else return 'i64';
 }
 
 function compileNumericLiteral(ast: LCNum): string {
@@ -98,7 +98,7 @@ function compileAbstraction(ast: LCAbs, context: Context): string {
   context.functionMap.set(functionName, {
     code: `
       (func $${functionName} (param $${ast.pID} ${paramType}) (param $context i32) (result ${lcType2WasmType(functionType.ret)})
-        (local $closure_ref_tmp i64)
+        (local $closure_ref_tmp i32)
         ${contextInit}
         ${compileExpression(ast.exp, context)}
       )
@@ -109,6 +109,16 @@ function compileAbstraction(ast: LCAbs, context: Context): string {
   context.localVars.shift();
 
   return `(call $create_closure (i32.const ${context.tableOffset++}) (local.get $context))`;
+}
+
+function getConversionKit(type: string): [string[], string[]] {
+  if (type === 'i32') {
+    return [['i64.extend_i32_s'], ['i32.wrap_i64']];
+  } else if (type === 'f32') {
+    return [['f64.promote_f32', 'i64.reinterpret_f64'], ['f64.reinterpret_i64', 'f32.demote_f64']];
+  } else if(type === 'f64') {
+    return [['i64.reinterpret_f64'], ['f64.reinterpret_i64']];
+  } else return [[], []];
 }
 
 function compileApplication(ast: LCApp, context: Context): string {
@@ -125,20 +135,21 @@ function compileApplication(ast: LCApp, context: Context): string {
   let argExp = compileExpression(ast.arg, context);
 
   if (paramType.tag === 'LCPVar' && argType.tag !== 'LCPVar') {
-    const laneSize = /(i|f)32/.test(lcType2WasmType(argType)) ? `${lcType2WasmType(argType)}x4` : `${lcType2WasmType(argType)}x2`;
+    const [convIn] = getConversionKit(lcType2WasmType(argType));
+
     argExp = `
-      (${laneSize}.replace_lane 0 (v128.const i64x2 0 0) ${argExp})
+      ${argExp}
+      ${convIn.map(op => `(${op})`).join('')}
     `;
   }
 
   let callExp = `(call_indirect (type ${signatureName}) ${argExp} (call $get_context_from_closure (local.get $closure_ref_tmp)) (call $get_fref_from_closure (local.get $closure_ref_tmp)))`;
 
   if (retType.tag === 'LCPVar' && expectedType.tag !== 'LCPVar') {
-    const laneSize = /(i|f)32/.test(lcType2WasmType(expectedType)) ? `${lcType2WasmType(expectedType)}x4` : `${lcType2WasmType(expectedType)}x2`;
-
+    const [_, convOut] = getConversionKit(lcType2WasmType(expectedType));
     callExp = `
       ${callExp}
-      (${laneSize}.extract_lane 0)
+      ${convOut.map(op => `(${op})`).join('')}
     `;
   }
 
@@ -188,7 +199,7 @@ export function compile(ast: LCProc, typeMap: TypeMap, runtime: string): string 
 
     result += `
       (func $${binding.id} (result ${lcType2WasmType(typeMap.get(binding)!)})
-        (local $closure_ref_tmp i64)
+        (local $closure_ref_tmp i32)
         (local $context i32)
         ${compileExpression(binding.exp, context)}
       )

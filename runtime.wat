@@ -1,4 +1,4 @@
-(module
+
   (memory $context_heap 1 100)
   (global $context_index_offset (mut i32) (i32.const 0))
 
@@ -92,10 +92,3 @@
     (call $get_context (local.get $closure_index))
     (i32x4.extract_lane 1)
   )
-)
-
-;; 100 10 , 100 - 10 들어간 순서대로 (위에서부터)
-;; context id : i32
-;; context { val, outer }
-;; closure id : i32
-;; closure { fref, context(outer) }
