@@ -13,7 +13,7 @@
     "outDir": "dist",
     "declaration": true,
     "declarationDir": "dist/types",
-    "types": ["node"]
+    "types": ["bun-types"]
   },
   "include": [
     "src/**/*"
