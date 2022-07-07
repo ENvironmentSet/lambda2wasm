@@ -1,19 +1,22 @@
 {
   "compilerOptions": {
-    "lib": ["esnext"],
-    "module": "es6",
+    "lib": [
+      "esnext",
+      "dom"
+    ],
+    "module": "commonjs",
     "noImplicitReturns": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "removeComments": true,
     "strict": true,
-    "target": "esnext",
+    "target": "es6",
     "sourceMap": true,
     "moduleResolution": "node",
     "outDir": "dist",
     "declaration": true,
     "declarationDir": "dist/types",
-    "types": ["bun-types"]
+    "types": ["node"]
   },
   "include": [
     "src/**/*"
@@ -22,10 +25,5 @@
     "**/*.test.ts",
     "node_modules",
     "dist"
-  ],
-  "ts-node": {
-    "compilerOptions": {
-      "module": "commonjs"
-    }
-  }
+  ]
 }

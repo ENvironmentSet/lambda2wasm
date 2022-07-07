@@ -1,26 +1,27 @@
 {
   "name": "lambda2wasm",
   "version": "1.0.0",
-  "description": "A Lambda expression compiler targeting web assembly",
-  "main": "index.js",
-  "scripts": {
-    "generate-parser": "tspeg syntax.peg ./src/parser.ts"
-  },
+  "author": "ENvironmentSet",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ENvironmentSet/lambda2wasm.git"
   },
-  "author": "ENvironmentSet",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/ENvironmentSet/lambda2wasm/issues"
-  },
-  "homepage": "https://github.com/ENvironmentSet/lambda2wasm#readme",
+  "main": "index.js",
   "devDependencies": {
+    "@types/node": "^18.0.3",
+    "ts-node": "^10.8.2",
     "tspeg": "^3.2.1",
     "typescript": "^4.6.4"
   },
-  "dependencies": {
-    "bun-types": "^0.0.83"
+  "bugs": {
+    "url": "https://github.com/ENvironmentSet/lambda2wasm/issues"
+  },
+  "description": "A Lambda expression compiler targeting web assembly",
+  "homepage": "https://github.com/ENvironmentSet/lambda2wasm#readme",
+  "license": "MIT",
+  "scripts": {
+    "generate-parser": "tspeg syntax.peg ./src/parser.ts",
+    "compile": "ts-node ./src/compile.ts",
+    "run": "ts-node ./src/execute.ts"
   }
 }
