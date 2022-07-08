@@ -87,23 +87,27 @@ export function isPolyType(type: LCType): boolean {
   return isPolyType(type.param) || isPolyType(type.ret);
 }
 
+function stringifySol(sol: [string, LCType][]): string {
+  return sol.map(([name, type]) => `${name} = ${typeToString(type)}`).join('\n');
+}
+
 // find sol of t1 = t2
 function solveTypeEquation(t1: LCType, t2: LCType, tenv: TypeEnv, sol: [string, LCType][] = []): [string, LCType][] {
   if (t1.tag === 'LCPVar') {
     if (tenv.includes(t1.id)) {
       if (t2.tag === 'LCPVar' && t1.tag === t2.tag) return sol;
-      else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)}`);
+      else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)} \n assumptions: \n ${stringifySol(sol)}`);
     } else if (sol.find(([id]) => id === t1.id)) {
       const prevSol = sol.find(([id]) => id === t1.id)!;
 
       if (typeEq(prevSol[1], t2)) return sol;
-      else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)}`);
+      else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)} \n assumptions: \n ${stringifySol(sol)}`);
     } return ([[t1.id, t2] as [string, LCType]]).concat(sol);
   }
-  if (t1.tag !== t2.tag) throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)}`);
+  if (t1.tag !== t2.tag) throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)} \n assumptions: \n ${stringifySol(sol)}`);
   if (t1.tag === 'LCMVar' || t2.tag == 'LCMVar') {
     if (typeEq(t1, t2)) return sol;
-    else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)}`);
+    else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)} \n assumptions: \n ${stringifySol(sol)}`);
   }
 
   return solveTypeEquation(t1.ret, t2.ret, tenv, solveTypeEquation(t1.param, t2.param, tenv, sol));
