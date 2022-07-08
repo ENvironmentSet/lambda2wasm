@@ -118,17 +118,16 @@ function getConversionKit(type: string): [string[], string[]] {
     return [['f64.promote_f32', 'i64.reinterpret_f64'], ['f64.reinterpret_i64', 'f32.demote_f64']];
   } else if(type === 'f64') {
     return [['i64.reinterpret_f64'], ['f64.reinterpret_i64']];
-  } else return [[], []];
+  } else throw new Error(`Cannot find conversion kit for type '${type}`);
 }
 
-function compileApplication(ast: LCApp, context: Context): string {
+function compileApplication(ast: LCApp, context: Context): string { //@TODO: wrap monomorphic function poly-like function when call polyfunc.
   const signatureName = `$_sig_${context.lambdaConfig.lambdaName}_${context.sigMap.size}`;
   const paramType = (context.typeMap.get(ast.f) as LCAbsT).param;
   const retType = (context.typeMap.get(ast.f) as LCAbsT).ret;
   const expectedType = context.typeMap.get(ast)!;
   const argType = context.typeMap.get(ast.arg)!;
   const signature = `(type ${signatureName} (func (param ${lcType2WasmType(paramType)}) (param i32) (result ${lcType2WasmType(retType)})))`;
-  //@FIXME: Monkey patch
 
   context.sigMap.set(signatureName, signature);
 
