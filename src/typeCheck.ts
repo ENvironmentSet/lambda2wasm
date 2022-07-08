@@ -101,7 +101,7 @@ function solveTypeEquation(t1: LCType, t2: LCType, tenv: TypeEnv, sol: [string, 
       const prevSol = sol.find(([id]) => id === t1.id)!;
 
       if (typeEq(prevSol[1], t2)) return sol;
-      else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)} \n assumptions: \n ${stringifySol(sol)}`);
+      else throw new Error(`No solution for type equation: ${typeToString(prevSol[1])} = ${typeToString(t2)} \n assumptions: \n ${stringifySol(sol)}`);
     } return ([[t1.id, t2] as [string, LCType]]).concat(sol);
   }
   if (t1.tag !== t2.tag) throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)} \n assumptions: \n ${stringifySol(sol)}`);
