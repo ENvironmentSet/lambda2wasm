@@ -3,7 +3,8 @@ import { AST, LCAbs, LCAbsT, LCApp, LCExp, LCMVar, LCNum, LCProc, LCPVar, LCType
 //@TODO: Rewrite in functional manner.
 
 export type TypeMap = WeakMap<AST, LCType>;
-type TypeEnv = [string, LCType][];
+type Env = [string, LCType][];
+type TypeEnv = string[];
 
 export function typeToString(type: LCType): string {
   if (type.tag === 'LCMVar') return type.id;
@@ -11,8 +12,8 @@ export function typeToString(type: LCType): string {
   else return `(${typeToString(type.param)}) -> ${typeToString(type.ret)}`
 }
 
-function resolveTVar(tenv: TypeEnv, variable: string): LCType {
-  const result = tenv.find(([key]) => key === variable);
+function resolveTVar(env: Env, variable: string): LCType {
+  const result = env.find(([key]) => key === variable);
 
   if (!result) throw new Error(`cannot resolve type of variable '${variable}'`);
   else return result[1];
@@ -51,14 +52,21 @@ function checkNumberLiteral(ast: LCNum, tmap: TypeMap): void {
   }
 }
 
-function checkVariable(ast: LCVar, tmap: TypeMap, tenv: TypeEnv): void {
-  const type = resolveTVar(tenv, ast.id);
+function checkVariable(ast: LCVar, tmap: TypeMap, env: Env): void {
+  const type = resolveTVar(env, ast.id);
 
   tmap.set(ast, type);
 }
 
-function checkAbstraction(ast: LCAbs, tmap: TypeMap, tenv: TypeEnv): void {
-  checkExp(ast.exp, tmap, ([[ast.pID, ast.pType]] as TypeEnv).concat(tenv));
+function collectTypeVar(type: LCType): string[] {
+  if (type.tag === 'LCMVar') return [];
+  else if (type.tag === 'LCPVar') return [type.id];
+  else return collectTypeVar(type.param).concat(collectTypeVar(type.ret));
+}
+
+function checkAbstraction(ast: LCAbs, tmap: TypeMap, env: Env, tenv: TypeEnv): void {
+  //body type..?
+  checkExp(ast.exp, tmap, ([[ast.pID, ast.pType]] as Env).concat(env), tenv.concat(collectTypeVar(ast.pType)));
 
   const bodyType = tmap.get(ast.exp)!;
 
@@ -80,25 +88,30 @@ export function isPolyType(type: LCType): boolean {
 }
 
 // find sol of t1 = t2
-function solveTypeEquation(t1: LCType, t2: LCType, tenv: TypeEnv): TypeEnv {
-  if (t1.tag === 'LCPVar') return ([[t1.id, t2]] as TypeEnv).concat(tenv);
+function solveTypeEquation(t1: LCType, t2: LCType, tenv: TypeEnv, sol: [string, LCType][] = []): [string, LCType][] {
+  if (t1.tag === 'LCPVar') {
+    if (tenv.includes(t1.id)) {
+      if (t2.tag === 'LCPVar' && t1.tag === t2.tag) return [];
+      else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)}`);
+    } else return ([[t1.id, t2] as [string, LCType]]).concat(sol);
+  }
   if (t1.tag === 'LCMVar' || t2.tag !== 'LCAbsT') throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)}`);
 
-  return solveTypeEquation(t1.ret, t2.ret, solveTypeEquation(t1.param, t2.param, tenv));
+  return solveTypeEquation(t1.ret, t2.ret, tenv, solveTypeEquation(t1.param, t2.param, tenv, sol));
 }
 
-function instantiatePolyType(ptype: LCType, tenv: TypeEnv): LCType {
+function instantiatePolyType(ptype: LCType, sols: [string, LCType][]): LCType {
   if (ptype.tag === 'LCPVar') {
-    return (tenv.find(([id]) => ptype.id === id) ?? [, ptype])[1];
+    return (sols.find(([id]) => ptype.id === id) ?? [, ptype])[1];
   }
   if (ptype.tag === 'LCMVar') return ptype;
 
-  return LCAbsT(instantiatePolyType(ptype.param, tenv), instantiatePolyType(ptype.ret, tenv));
+  return LCAbsT(instantiatePolyType(ptype.param, sols), instantiatePolyType(ptype.ret, sols));
 }
 
-function checkApplication(ast: LCApp, tmap: TypeMap, tenv: TypeEnv): void {
-  checkExp(ast.f, tmap, tenv);
-  checkExp(ast.arg, tmap, tenv);
+function checkApplication(ast: LCApp, tmap: TypeMap, env: Env, tenv: TypeEnv): void {
+  checkExp(ast.f, tmap, env, tenv);
+  checkExp(ast.arg, tmap, env, tenv);
 
   const headType = tmap.get(ast.f)!;
   const argType = tmap.get(ast.arg)!;
@@ -119,16 +132,16 @@ function checkApplication(ast: LCApp, tmap: TypeMap, tenv: TypeEnv): void {
   }
 }
 
-function checkExp(ast: LCExp, tmap: TypeMap, tenv: TypeEnv): void {
-  if (ast.tag === 'LCVar') checkVariable(ast, tmap, tenv);
+function checkExp(ast: LCExp, tmap: TypeMap, env: Env, tenv: TypeEnv): void {
+  if (ast.tag === 'LCVar') checkVariable(ast, tmap, env);
   else if (ast.tag === 'LCNum') checkNumberLiteral(ast, tmap);
-  else if (ast.tag === 'LCAbs') checkAbstraction(ast, tmap, tenv);
-  else if (ast.tag === 'LCApp') checkApplication(ast, tmap, tenv);
+  else if (ast.tag === 'LCAbs') checkAbstraction(ast, tmap, env, tenv);
+  else if (ast.tag === 'LCApp') checkApplication(ast, tmap, env, tenv);
   else {
     const { left, right } = ast;
 
-    checkExp(left, tmap, tenv);
-    checkExp(right, tmap, tenv);
+    checkExp(left, tmap, env, tenv);
+    checkExp(right, tmap, env, tenv);
 
     const ltype = tmap.get(left)!;
     const rtype = tmap.get(right)!;
@@ -141,14 +154,15 @@ function checkExp(ast: LCExp, tmap: TypeMap, tenv: TypeEnv): void {
 
 export function typeCheck(ast: LCProc): TypeMap {
   const tmap = new WeakMap<AST, LCType>();
+  const env = [] as Env;
   const tenv = [] as TypeEnv;
 
   for (const binding of ast.bindings) {
-    checkExp(binding.exp, tmap, tenv);
+    checkExp(binding.exp, tmap, env, tenv);
 
     const bindingType = tmap.get(binding.exp)!;
     tmap.set(binding, bindingType);
-    tenv.push([binding.id, bindingType]);
+    env.push([binding.id, bindingType]);
   }
 
   return tmap;
