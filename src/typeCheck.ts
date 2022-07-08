@@ -91,7 +91,7 @@ export function isPolyType(type: LCType): boolean {
 function solveTypeEquation(t1: LCType, t2: LCType, tenv: TypeEnv, sol: [string, LCType][] = []): [string, LCType][] {
   if (t1.tag === 'LCPVar') {
     if (tenv.includes(t1.id)) {
-      if (t2.tag === 'LCPVar' && t1.tag === t2.tag) return [];
+      if (t2.tag === 'LCPVar' && t1.tag === t2.tag) return sol;
       else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)}`);
     } else return ([[t1.id, t2] as [string, LCType]]).concat(sol);
   }
