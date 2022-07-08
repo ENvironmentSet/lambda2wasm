@@ -100,7 +100,11 @@ function solveTypeEquation(t1: LCType, t2: LCType, tenv: TypeEnv, sol: [string, 
       else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)}`);
     } return ([[t1.id, t2] as [string, LCType]]).concat(sol);
   }
-  if (t1.tag === 'LCMVar' || t2.tag !== 'LCAbsT') throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)}`);
+  if (t1.tag !== t2.tag) throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)}`);
+  if (t1.tag === 'LCMVar' || t2.tag == 'LCMVar') {
+    if (typeEq(t1, t2)) return sol;
+    else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)}`);
+  }
 
   return solveTypeEquation(t1.ret, t2.ret, tenv, solveTypeEquation(t1.param, t2.param, tenv, sol));
 }
