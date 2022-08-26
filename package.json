@@ -8,6 +8,7 @@
   },
   "main": "index.js",
   "devDependencies": {
+    "@types/dedent": "^0.7.0",
     "@types/node": "^18.0.3",
     "ts-node": "^10.8.2",
     "tspeg": "^3.2.1",
