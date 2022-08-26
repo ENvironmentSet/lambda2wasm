@@ -1,3 +1,9 @@
+/**
+ * refineSyntaxTree : refines auto-generated PEG parser's AST into compact one
+ *
+ * branches may not be understood intuitively, please refer to type definition of generated PEG parser.
+ */
+
 import {
   abstraction,
   application_1,
@@ -25,6 +31,7 @@ import {
   LCType,
   LCVar
 } from './AST';
+import { never } from './never';
 
 function refineFunctionType(st: function_type_1, prefix: string): LCAbsT {
   return LCAbsT(refineType(st.param, prefix), refineType(st.exp, prefix));
@@ -43,7 +50,7 @@ function refineType(st: type, prefix: string): LCType {
     case ASTKinds.type_function_type_head_2:
       return refineType(st.type, prefix)
     default:
-      throw new Error(`non-exhaust switch statement in refineType: ${st}`);
+      throw never;
   }
 }
 
@@ -78,7 +85,7 @@ function refineExp(st: expression, prefix: string): LCExp {
     case ASTKinds.num:
       return LCNum(st.value, st.type.kind === ASTKinds.type_var_poly ? LCPVar(st.type.identifier) : LCMVar(st.type.identifier))
     default:
-      throw new Error(`non-exhaust switch statement in refineExp: ${st}`);
+      throw never;
   }
 }
 
