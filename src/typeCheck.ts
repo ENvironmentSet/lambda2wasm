@@ -1,182 +1,395 @@
-import { AST, LCAbs, LCAbsT, LCApp, LCExp, LCMVar, LCNum, LCProc, LCPVar, LCType, LCVar } from './AST';
+/**
+ * Type checker
+ *
+ * Covers lambda expression that can be typed in monomorphic type or rank 1 polymorphic type.
+ *
+ * @TODO: Verify algorithm
+ * @TODO: rank-n type inference for `$` operator and `runST`.
+ */
 
-//@TODO: Rewrite in functional manner.
+import {
+  LCAbs,
+  LCAbsT,
+  LCApp,
+  LCArith,
+  LCBind,
+  LCExp,
+  LCNum,
+  LCProc,
+  LCPVar,
+  LCTerm,
+  LCType,
+  LCUVar,
+  LCVar
+} from './AST';
+import { prettyError } from './prettyError';
 
-export type TypeMap = WeakMap<AST, LCType>;
-type Env = [string, LCType][];
-type TypeEnv = string[];
+export type TypeMap = WeakMap<LCTerm, LCType>
+// stack of bindings, leftmost binding has priority in resolution.
+type Context = [string, LCType][]
+type BoundTypeVariables = string[]
 
-export function typeToString(type: LCType): string {
-  if (type.tag === 'LCMVar') return type.id;
-  if (type.tag === 'LCPVar') return type.id;
-  else return `(${typeToString(type.param)}) -> ${typeToString(type.ret)}`
+// returns string representation of given type.
+function typeToString(type: LCType): string {
+  switch (type.tag) {
+    case 'LCMVar':
+      return type.id
+    case 'LCPVar':
+      return type.id
+    case 'LCUVar':
+      // unification variables may not have been unified at the time of calling this function
+      if (type.unified) return typeToString(type.unified)
+      else return `${type.id}`
+    case 'LCAbsT':
+      // '->' is right associative, therefore parentheses are required to represent function type of parameter.
+      if (type.param.tag === 'LCAbsT') return `(${typeToString(type.param)}) -> ${typeToString(type.ret)}`
+      else return `${typeToString(type.param)} -> ${typeToString(type.ret)}`
+  }
 }
 
-function resolveTVar(env: Env, variable: string): LCType {
-  const result = env.find(([key]) => key === variable);
-
-  if (!result) throw new Error(`cannot resolve type of variable '${variable}'`);
-  else return result[1];
+// returns string representation of given type.
+function contextToString(context: Context): string {
+  return context.reduce((str, [name, type]) => `${str}\n(${name}, ${typeToString(type)})`, '')
 }
 
-function checkNumberLiteral(ast: LCNum, tmap: TypeMap): void {
-  if (ast.type.tag === 'LCPVar') throw new Error('Numeric Literal cannot have polymorphic type');
+/*
+ simplify types.
 
-  function checkInt(): void {
-    if (!Number.isInteger(ast.val)) throw new Error(`${ast.val} is not a integer`);
+ - remove unnecessary layer of unification variable.
+ */
+function simplifyType(type: LCType): LCType {
+  if (type.tag === 'LCAbsT') return LCAbsT(simplifyType(type.param), simplifyType(type.ret))
+  if (type.tag !== 'LCUVar') return type
+  return type.unified ?? type
+}
+
+// check if two types are compatible.
+// monomorphic types only.
+function compareType(t1: LCType, t2: LCType, expectation: boolean): boolean {
+  // let types be it's simplest form.
+  t1 = simplifyType(t1)
+  t2 = simplifyType(t2)
+
+  if (t1.tag === 'LCAbsT' || t2.tag === 'LCAbsT') {
+    // at least, one of t1 and t2 is function type now.
+    if (t1.tag !== t2.tag) return false
+
+    // t1 and t2 are function type here.
+    return compareType((t1 as LCAbsT).param, (t2 as LCAbsT).param, expectation) && compareType((t1 as LCAbsT).ret, (t2 as LCAbsT).ret, expectation)
+  } else if (t1.tag === 'LCUVar' || t2.tag === 'LCUVar') {
+    // compatible check of unification variables are delayed until one of them is resolved.
+    if (t1.tag === 'LCUVar') {
+      // If t1 is unified, but not compatible with t2
+      if (t1.unified && compareType(t1.unified, t2, expectation) !== expectation)
+        throw prettyError(`
+          expected two types are ${expectation ? 'compatible' : 'incompatible'},
+          but found they are not.
+        `)
+      // If t1 is not unified
+      else if (!t1.unified) {
+        t1.unified = t2
+
+        if(!t1.constraints.every(constraint => constraint(t2)))
+          throw prettyError(`
+            assuming ${typeToString(t1)} equals to ${typeToString(t2)} conflicts to constraints already given to. 
+          `)
+      }
+    }
+    else if (t2.tag === 'LCUVar') {
+      if (t2.unified && compareType(t2.unified, t1, expectation) !== expectation)
+        throw prettyError(`
+          expected two types are ${expectation ? 'compatible' : 'incompatible'},
+          but found they are not.
+        `)
+      else if (!t2.unified) {
+        t2.unified = t1
+
+        if(!t2.constraints.every(constraint => constraint(t1)))
+          throw prettyError(`
+            assuming ${typeToString(t1)} equals to ${typeToString(t2)} conflicts to constraints already given to. 
+          `)
+      }
+    }
+
+    return expectation
+  }
+  /*
+   two non-function types are compatible
+   if and only if they are same kind and same name.
+  */
+  else return t1.tag === t2.tag && t1.id === t2.id
+}
+
+/*
+ * check whether given type represents any kinds of number type.
+ * @TODO: Let primitive types be top level binding so that this kinds of check does not need.
+ */
+function isNumberType(type: LCType, expectation: boolean): boolean {
+  if (type.tag === 'LCPVar' || type.tag === 'LCAbsT') return false
+  if (type.tag === 'LCUVar') {
+    if (type.unified) return isNumberType(type.unified, expectation)
+    else {
+      type.constraints.push(type => isNumberType(type, expectation) === expectation)
+
+      return expectation
+    }
   }
 
-  //@FIXME: Illegal implementation
-  function checkSize(size: number): void {}
+  return ['I32', 'I64', 'F32', 'F64'].includes(type.id)
+}
 
+// collect all type variables in given type, duplication will be ignored.
+function collectTypeVariables(type: LCType): BoundTypeVariables {
+  if (type.tag === 'LCMVar' || type.tag === 'LCUVar') return []
+  else if (type.tag === 'LCPVar') return [type.id]
+  else return collectTypeVariables(type.param).concat(collectTypeVariables(type.ret)) // Now type must be LCAbsT.
+}
+
+//@FIXME: resolve name collision problem in more elegant way.
+function terminateUnificationVariable(type: LCType, namespace: string): LCType {
+  if (type.tag === 'LCAbsT') return LCAbsT(terminateUnificationVariable(type.param, `${namespace}_`), terminateUnificationVariable(type.ret, `${namespace}'`))
+  else if (type.tag !== 'LCUVar') return type
+  else if (type.unified) return terminateUnificationVariable(type.unified, namespace)
+  else {
+    type.unified = LCPVar(`${namespace}_u`)
+
+    if (!type.constraints.every(constraint => constraint(type)))
+      throw prettyError(`
+        tried to resolve unification variable '${type.id}' as ${typeToString(type.unified)} but failed.
+      `)
+
+    return type
+  }
+}
+
+// resolves type of given variable's name.
+function resolveTypeOfVariable(target: string, context: Context): LCType {
+  // leftmost binding(the latest one) has priority in name resolution.
+  const searchResult = context.find(([name]) => name === target)
+
+  if (!searchResult)
+    throw prettyError(`
+      Cannot resolve type of variable '${target}' in the context:
+      
+      ${contextToString(context)}
+    `)
+
+  return searchResult[1]
+}
+
+// type check given numeric literal.
+function checkNumericLiteral(ast: LCNum, typeMap: TypeMap) {
+  function checkInt(): void {
+    if (!Number.isInteger(ast.val))
+      throw prettyError(`
+        ${ast.val} is not a integer, value of type '${typeToString(ast.type)}' expected.
+      `)
+  }
+
+  //@TODO: check size of number.
   switch (ast.type.id) {
     case 'I32':
-      checkInt();
-      checkSize(32);
-      tmap.set(ast, ast.type);
+      checkInt()
+      typeMap.set(ast, ast.type)
       break;
     case 'I64':
-      checkInt();
-      checkSize(64);
-      tmap.set(ast, ast.type);
-      break;
+      checkInt()
+      typeMap.set(ast, ast.type)
+      break
     case 'F32':
-      checkSize(32);
-      tmap.set(ast, ast.type);
-      break;
+      typeMap.set(ast, ast.type)
+      break
     case 'F64':
-      tmap.set(ast, ast.type);
-      break;
+      typeMap.set(ast, ast.type)
+      break
     default:
-      throw new Error(`Unknown monomorphic type '${ast.type.id}'`);
+      throw prettyError(`Incompatible type for numeric literal '${ast.type}' is given.`)
   }
 }
 
-function checkVariable(ast: LCVar, tmap: TypeMap, env: Env): void {
-  const type = resolveTVar(env, ast.id);
+// type check given variable reference.
+function checkVariable(ast: LCVar, context: Context, typeMap: TypeMap) {
+  const type = resolveTypeOfVariable(ast.id, context)
 
-  tmap.set(ast, type);
+  typeMap.set(ast, type)
 }
 
-function collectTypeVar(type: LCType): string[] {
-  if (type.tag === 'LCMVar') return [];
-  else if (type.tag === 'LCPVar') return [type.id];
-  else return collectTypeVar(type.param).concat(collectTypeVar(type.ret));
-}
+//@TODO: Better error messages.
+function solveTypeEquation(parameterType: LCType, argumentType: LCType, context: Context, boundTypeVariables: BoundTypeVariables, solutionMap: Map<string, LCType>): Map<string, LCType> {
+  if (parameterType.tag === 'LCPVar' && !boundTypeVariables.includes(parameterType.id)) {
+    if (solutionMap.has(parameterType.id) && !compareType(solutionMap.get(parameterType.id)!, argumentType, true))
+      throw prettyError(`occurrence check failed`)
 
-function checkAbstraction(ast: LCAbs, tmap: TypeMap, env: Env, tenv: TypeEnv): void {
-  //body type..?
-  checkExp(ast.exp, tmap, ([[ast.pID, ast.pType]] as Env).concat(env), tenv.concat(collectTypeVar(ast.pType)));
+    solutionMap.set(parameterType.id, argumentType)
+  } else if (parameterType.tag === 'LCMVar' || (parameterType.tag === 'LCPVar' && boundTypeVariables.includes(parameterType.id))) {
+    if (!compareType(parameterType, argumentType, true))
+      throw prettyError(`type did not match error`)
 
-  const bodyType = tmap.get(ast.exp)!;
+    if (argumentType.tag === 'LCUVar') {
+      if (argumentType.unified)
+          solveTypeEquation(parameterType, argumentType.unified, context, boundTypeVariables, solutionMap)
+      else {
+        argumentType.unified = parameterType
 
-  tmap.set(ast, LCAbsT(ast.pType, bodyType));
-}
+        if (!argumentType.constraints.every(constraint => constraint(parameterType)))
+          throw prettyError(`fail to meet constraints for unification variable`)
+      }
+    }
+  } else if (parameterType.tag === 'LCAbsT') {
+    if (argumentType.tag === 'LCUVar') {
+      if (argumentType.unified)
+        solveTypeEquation(parameterType, argumentType.unified, context, boundTypeVariables, solutionMap)
+      else {
+        const semiInstantiatedUnificationVar: LCAbsT = LCAbsT(LCUVar(`${argumentType.id}_head`), LCUVar(`${argumentType.id}_ret`))
 
-function typeEq(t1: LCType, t2: LCType): boolean {
-  if (t1.tag !== t2.tag) return false;
-  else if (t1.tag === 'LCAbsT' && t2.tag === 'LCAbsT') {
-    return typeEq(t1.param, t2.param) && typeEq(t1.ret, t2.ret);
-  } else return (t1 as LCPVar | LCMVar).id === (t2 as LCPVar | LCMVar).id;
-}
+        argumentType.unified = semiInstantiatedUnificationVar
 
-export function isPolyType(type: LCType): boolean {
-  if (type.tag === 'LCMVar') return false;
-  if (type.tag === 'LCPVar') return true;
+        if (argumentType.constraints.every(constraint => constraint(semiInstantiatedUnificationVar)))
+          throw prettyError(`fail to apply incremental resolution to unification variable`)
 
-  return isPolyType(type.param) || isPolyType(type.ret);
-}
+        solveTypeEquation(parameterType, semiInstantiatedUnificationVar, context, boundTypeVariables, solutionMap)
+      }
+    } else if (argumentType.tag === 'LCAbsT') {
+      solveTypeEquation(parameterType.param, argumentType.param, context, boundTypeVariables, solutionMap)
+      solveTypeEquation(parameterType.ret, argumentType.ret, context, boundTypeVariables, solutionMap)
+    } else throw prettyError(`type did not match error`)
+  } else if (parameterType.tag === 'LCUVar') {
+    if (parameterType.unified)
+      solveTypeEquation(parameterType.unified, argumentType, context, boundTypeVariables, solutionMap)
+    else {
+      parameterType.unified = argumentType
 
-function stringifySol(sol: [string, LCType][]): string {
-  return sol.map(([name, type]) => `${name} = ${typeToString(type)}`).join('\n');
-}
-
-// find sol of t1 = t2
-function solveTypeEquation(t1: LCType, t2: LCType, tenv: TypeEnv, sol: [string, LCType][] = []): [string, LCType][] {
-  if (t1.tag === 'LCPVar') {
-    if (tenv.includes(t1.id)) {
-      if (t2.tag === 'LCPVar' && t1.tag === t2.tag) return sol;
-      else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)} \n assumptions: \n ${stringifySol(sol)}`);
-    } else if (sol.find(([id]) => id === t1.id)) {
-      const prevSol = sol.find(([id]) => id === t1.id)!;
-
-      if (typeEq(prevSol[1], t2)) return sol;
-      else throw new Error(`No solution for type equation: ${typeToString(prevSol[1])} = ${typeToString(t2)} \n assumptions: \n ${stringifySol(sol)}`);
-    } return ([[t1.id, t2] as [string, LCType]]).concat(sol);
+      if (!parameterType.constraints.every(constraint => constraint(parameterType)))
+        throw prettyError(`fail to meet constraints for unification variable`)
+    }
   }
-  if (t1.tag !== t2.tag) throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)} \n assumptions: \n ${stringifySol(sol)}`);
-  if (t1.tag === 'LCMVar' || t2.tag == 'LCMVar') {
-    if (typeEq(t1, t2)) return sol;
-    else throw new Error(`No solution for type equation: ${typeToString(t1)} = ${typeToString(t2)} \n assumptions: \n ${stringifySol(sol)}`);
-  }
 
-  return solveTypeEquation(t1.ret, t2.ret, tenv, solveTypeEquation(t1.param, t2.param, tenv, sol));
+  return solutionMap
 }
 
-function instantiatePolyType(ptype: LCType, sols: [string, LCType][]): LCType {
-  if (ptype.tag === 'LCPVar') {
-    return (sols.find(([id]) => ptype.id === id) ?? [, ptype])[1];
-  }
-  if (ptype.tag === 'LCMVar') return ptype;
+function instantiateType(type: LCType, boundTypeVariables: BoundTypeVariables, sols: Map<string, LCType>): LCType {
+  if (type.tag === 'LCPVar' && !boundTypeVariables.includes(type.id)) {
+    if (sols.has(type.id)) return sols.get(type.id)!
 
-  return LCAbsT(instantiatePolyType(ptype.param, sols), instantiatePolyType(ptype.ret, sols));
+    throw prettyError(`cannot resolve solution for type variable '${type.id}'`)
+  } else if (type.tag === 'LCAbsT')
+    return LCAbsT(instantiateType(type.param, boundTypeVariables, sols), instantiateType(type.ret, boundTypeVariables, sols))
+  else return type
 }
 
-function checkApplication(ast: LCApp, tmap: TypeMap, env: Env, tenv: TypeEnv): void {
-  checkExp(ast.f, tmap, env, tenv);
-  checkExp(ast.arg, tmap, env, tenv);
+// type check application expression
+function checkApplication(ast: LCApp, context: Context, typeMap: TypeMap, boundTypeVariables: BoundTypeVariables) {
+  checkExpression(ast.f, context, typeMap, boundTypeVariables)
+  checkExpression(ast.arg, context, typeMap, boundTypeVariables)
 
-  const headType = tmap.get(ast.f)!;
-  const argType = tmap.get(ast.arg)!;
+  // once head/argument expression type checks, there must be mapping to type from it in TypeMap
+  const headType = typeMap.get(ast.f)!;
+  const argType = typeMap.get(ast.arg)!;
 
-  if (headType.tag !== 'LCAbsT') throw new Error(`${ast.f} is not a function`);
+  if (headType.tag !== 'LCAbsT')
+    throw prettyError(`
+      head of application expression is not function
+    `)
 
-  const paramType = headType.param;
-  const retType = headType.ret;
+  const parameterType = headType.param
+  const returnType = headType.ret
 
-  if (isPolyType(paramType)) {
-    const sols = solveTypeEquation(paramType, argType, tenv);
+  const solutions = solveTypeEquation(parameterType, argType, context, boundTypeVariables, new Map)
 
-    tmap.set(ast, instantiatePolyType(retType, sols));
-  } else {
-    if (!typeEq(paramType, argType)) throw new Error(`${typeToString(argType)} is not equals to ${typeToString(retType)}`);
+  typeMap.set(ast, instantiateType(returnType, boundTypeVariables, solutions))
+}
 
-    tmap.set(ast, retType);
+// type check given lambda abstraction
+function checkAbstraction(ast: LCAbs, context: Context, typeMap: TypeMap, boundTypeVariables: BoundTypeVariables) {
+  const collectedPVars = collectTypeVariables(ast.pType)
+
+  checkExpression(ast.exp, ([[ast.pID, ast.pType]] as Context).concat(context), typeMap, collectedPVars.concat(boundTypeVariables))
+
+  // once body expression of lambda abstraction type checks, there must be mapping to type from it in TypeMap
+  const bodyType = typeMap.get(ast.exp)!
+
+  typeMap.set(ast, LCAbsT(ast.pType, bodyType))
+}
+
+// type check given arithmetic expression
+function checkArithmeticExpression(ast: LCArith, context: Context, typeMap: TypeMap, boundTypeVariables: BoundTypeVariables) {
+  const { left, right } = ast
+
+  checkExpression(left, context, typeMap, boundTypeVariables)
+  checkExpression(right, context, typeMap, boundTypeVariables)
+
+  // once left/right operand type checks, type of both can be found in TypeMap.
+  const lvalType = typeMap.get(left)!;
+  const rvalType = typeMap.get(right)!;
+
+  if (lvalType.tag === 'LCAbsT' || rvalType.tag === 'LCAbsT')
+    throw prettyError(`
+      functions can not be target of arithmetic operations.
+    `)
+  if (lvalType.tag === 'LCPVar' || rvalType.tag === 'LCPVar')
+    throw prettyError(`
+      value of polymorphic type can not be target of arithmetic operations.
+    `)
+  if (!compareType(lvalType, rvalType, true))
+    throw prettyError(`
+      types of operand for arithmetic operation are incompatible.
+      
+      type of left operand is '${typeToString(lvalType)}', but type of right is '${typeToString(rvalType)}'. 
+    `)
+  if (!isNumberType(lvalType, true))
+    throw prettyError(`
+      only value of number types can be operand of arithmetic operation.
+    `)
+
+  typeMap.set(ast, lvalType)
+}
+
+// type check given lambda expression.
+function checkExpression(ast: LCExp, context: Context, typeMap: TypeMap, boundTypeVariables: BoundTypeVariables) {
+  switch (ast.tag) {
+    case 'LCNum':
+      checkNumericLiteral(ast, typeMap)
+      break
+    case 'LCVar':
+      checkVariable(ast, context, typeMap)
+      break
+    case 'LCApp':
+      checkApplication(ast, context, typeMap, boundTypeVariables)
+      break
+    case 'LCAbs':
+      checkAbstraction(ast, context, typeMap, boundTypeVariables)
+      break
+    // @TODO: Let arithmetic operators be normal function so that this kind of handling could be erased.
+    case 'LCAdd':
+    case 'LCSub':
+    case 'LCMult':
+    case 'LCDiv':
+      checkArithmeticExpression(ast, context, typeMap, boundTypeVariables);
+      break
   }
 }
 
-function checkExp(ast: LCExp, tmap: TypeMap, env: Env, tenv: TypeEnv): void {
-  if (ast.tag === 'LCVar') checkVariable(ast, tmap, env);
-  else if (ast.tag === 'LCNum') checkNumberLiteral(ast, tmap);
-  else if (ast.tag === 'LCAbs') checkAbstraction(ast, tmap, env, tenv);
-  else if (ast.tag === 'LCApp') checkApplication(ast, tmap, env, tenv);
-  else {
-    const { left, right } = ast;
+// type check given supercombinator
+function checkBinding(ast: LCBind, context: Context, typeMap: TypeMap, boundTypeVariables: BoundTypeVariables) {
+  checkExpression(ast.exp, ([[ast.id, LCUVar(ast.id)]] as Context).concat(context), typeMap, boundTypeVariables)
 
-    checkExp(left, tmap, env, tenv);
-    checkExp(right, tmap, env, tenv);
+  const expType = terminateUnificationVariable(typeMap.get(ast.exp)!, ast.id)
 
-    const ltype = tmap.get(left)!;
-    const rtype = tmap.get(right)!;
-
-    if (isPolyType(ltype) || isPolyType(rtype)) throw new Error(`Cannot perform arithmetic operation to polytype value.`);
-    if (!typeEq(ltype, rtype)) throw new Error(`type of left and right operand are not compatible,  ${typeToString(ltype)} is not equal to ${typeToString(rtype)}`);
-    tmap.set(ast, ltype);
-  }
+  typeMap.set(ast, simplifyType(expType))
 }
 
+// type check given program
 export function typeCheck(ast: LCProc): TypeMap {
-  const tmap = new WeakMap<AST, LCType>();
-  const env = [] as Env;
-  const tenv = [] as TypeEnv;
+  const typeMap: TypeMap = new Map
+  const context: Context = []
+  const boundTypeVariables: BoundTypeVariables = []
 
+  //@TODO: Hoisting?
   for (const binding of ast.bindings) {
-    checkExp(binding.exp, tmap, env, tenv);
+    checkBinding(binding, context, typeMap, boundTypeVariables)
 
-    const bindingType = tmap.get(binding.exp)!;
-    tmap.set(binding, bindingType);
-    env.push([binding.id, bindingType]);
+    context.push([binding.id, typeMap.get(binding)!])
   }
 
-  return tmap;
+  return typeMap
 }

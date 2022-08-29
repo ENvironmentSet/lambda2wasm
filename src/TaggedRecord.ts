@@ -1,0 +1,1 @@
+export type TaggedRecord<tag, fields> = { tag: tag } & fields
