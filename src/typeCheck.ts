@@ -271,7 +271,7 @@ function instantiateType(type: LCType, boundTypeVariables: BoundTypeVariables, s
   if (type.tag === 'LCPVar' && !boundTypeVariables.includes(type.id)) {
     if (sols.has(type.id)) return sols.get(type.id)!
 
-    throw prettyError(`cannot resolve solution for type variable '${type.id}'`)
+    return type
   } else if (type.tag === 'LCAbsT')
     return LCAbsT(instantiateType(type.param, boundTypeVariables, sols), instantiateType(type.ret, boundTypeVariables, sols))
   else return type
@@ -295,6 +295,8 @@ function checkApplication(ast: LCApp, context: Context, typeMap: TypeMap, boundT
   const returnType = headType.ret
 
   const solutions = solveTypeEquation(parameterType, argType, context, boundTypeVariables, new Map)
+
+  console.log(solutions)
 
   typeMap.set(ast, instantiateType(returnType, boundTypeVariables, solutions))
 }
