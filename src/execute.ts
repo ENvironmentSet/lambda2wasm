@@ -136,7 +136,7 @@ const wat = compile(refinedAST, typeMap, runtime);
 
   await tempFile.writeFile(wat);
 
-  exec('wat2wasm ./temp.wat', (_, stdout) => {
+  exec('wat2wasm ./temp.wat', () => {
     WebAssembly.instantiate(readFileSync('./temp.wasm')).then(results => {
       //@ts-ignore-next-line
       console.log(results.instance.exports.main());
