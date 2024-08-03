@@ -3,7 +3,7 @@ import { refineSyntaxTree } from './refineSyntaxTree';
 import { typeCheck } from './typeCheck';
 import { compile } from './compiler';
 
-import { readFileSync } from 'fs';
+import { readFileSync } from 'node:fs';
 
 const source = String.fromCharCode(...readFileSync(process.argv[2]));
 const runtime = `
