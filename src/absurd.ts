@@ -2,4 +2,4 @@
  * never : dummy constant to satisfy exhaustive check
  */
 
-export declare const never: never;
+export function absurd<T>(x: never): T { return x }

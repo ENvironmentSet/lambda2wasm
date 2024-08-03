@@ -31,7 +31,7 @@ import {
   LCType,
   LCVar
 } from './AST';
-import { never } from './never';
+import { absurd } from './absurd';
 
 function refineFunctionType(st: function_type_1, prefix: string): LCAbsT {
   return LCAbsT(refineType(st.param, prefix), refineType(st.exp, prefix));
@@ -50,7 +50,7 @@ function refineType(st: type, prefix: string): LCType {
     case ASTKinds.type_function_type_head_2:
       return refineType(st.type, prefix)
     default:
-      throw never;
+      return absurd(st)
   }
 }
 
@@ -85,7 +85,7 @@ function refineExp(st: expression, prefix: string): LCExp {
     case ASTKinds.num:
       return LCNum(st.value, st.type.kind === ASTKinds.type_var_poly ? LCPVar(st.type.identifier) : LCMVar(st.type.identifier))
     default:
-      throw never;
+      return absurd(st)
   }
 }
 
