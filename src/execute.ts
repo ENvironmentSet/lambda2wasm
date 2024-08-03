@@ -8,7 +8,7 @@ import { exec } from 'node:child_process';
 import { open } from 'node:fs/promises';
 
 const source = String.fromCharCode(...readFileSync(process.argv[2]));
-const runtime = String.fromCharCode(...readFileSync('../runtime.wat'));
+const runtime =  String.fromCharCode(...readFileSync(`${__dirname}/../runtime.wat`));
 
 const ast = parse(source);
 
