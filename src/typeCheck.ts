@@ -296,8 +296,6 @@ function checkApplication(ast: LCApp, context: Context, typeMap: TypeMap, boundT
 
   const solutions = solveTypeEquation(parameterType, argType, context, boundTypeVariables, new Map)
 
-  console.log(solutions)
-
   typeMap.set(ast, instantiateType(returnType, boundTypeVariables, solutions))
 }
 
