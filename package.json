@@ -23,7 +23,7 @@
   "scripts": {
     "generate-parser": "tspeg syntax.peg ./src/parser.ts",
     "compile": "ts-node ./src/compile.ts",
-    "run": "ts-node ./src/execute.ts"
+    "execute": "ts-node ./src/execute.ts"
   },
   "dependencies": {
     "dedent": "^0.7.0"
