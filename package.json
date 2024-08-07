@@ -6,7 +6,6 @@
     "type": "git",
     "url": "git+https://github.com/ENvironmentSet/lambda2wasm.git"
   },
-  "main": "index.js",
   "dependencies": {
     "dedent": "^0.7.0",
     "wabt": "^1.0.36"
