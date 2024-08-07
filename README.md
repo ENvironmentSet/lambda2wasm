@@ -20,7 +20,7 @@ square = x:I32. x * x.
 id = x:a. x.
 apply = f:a->a. x:a. f x.
 
-main = apply inc 6#I32.
+main = apply id (inc 6#I32).
 ```
 
 ## Commands
