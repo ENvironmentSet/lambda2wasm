@@ -7,6 +7,10 @@
     "url": "git+https://github.com/ENvironmentSet/lambda2wasm.git"
   },
   "main": "index.js",
+  "dependencies": {
+    "dedent": "^0.7.0",
+    "wabt": "^1.0.36"
+  },
   "devDependencies": {
     "@types/dedent": "^0.7.0",
     "@types/node": "^18.0.3",
@@ -24,8 +28,5 @@
     "generate-parser": "tspeg syntax.peg ./src/parser.ts",
     "compile": "ts-node ./src/compile.ts",
     "execute": "ts-node ./src/execute.ts"
-  },
-  "dependencies": {
-    "dedent": "^0.7.0"
   }
 }

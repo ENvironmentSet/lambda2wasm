@@ -147,3 +147,12 @@ a -> a
 
 polytypevar stays polytype in it's scope
 monotypevar boxed polytype when enter polyfunc, unboxed when exit.
+
+
+M -> a (i64 conv)
+a -> M (i64 conv)
+a -> a (both conv)
+
+convkit with specialization
+
+((a -> a) -> a) -> a -> a
